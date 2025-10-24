@@ -1,0 +1,209 @@
+# =========================
+# PYTHON
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.pdb
+*.so
+
+# Entornos virtuales
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.pyenv
+.venv*/
+
+# Archivos temporales y de configuración local
+*.log
+*.pot
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.db
+*.db-journal
+*.pid
+*.seed
+*.bak
+*.swp
+*.swo
+*~
+
+# Distribuciones / empaquetado
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Cobertura de tests / reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+pytestdebug.log
+
+# MyPy / Pylint / Ruff
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+.ruff_cache/
+
+# Poetry / Pipenv / pdm
+poetry.lock
+Pipfile.lock
+__pypackages__/
+site/
+.pdm.toml
+.pdm-build/
+.cache/pypoetry/
+
+# =========================
+# JUPYTER NOTEBOOKS
+# =========================
+.ipynb_checkpoints/
+*.nbconvert.ipynb
+*.ipynb.tmp
+
+# =========================
+# DOCKER
+# =========================
+# Archivos locales y build context
+.docker/
+docker-compose.override.yml
+docker-compose.local.yml
+docker-compose.dev.yml
+Dockerfile.*
+.dockerignore
+
+# Volúmenes o datos generados
+data/
+tmp/
+logs/
+*.pid
+*.sock
+
+# =========================
+# TERRAFORM
+# =========================
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform/
+.terraform.lock.hcl
+terraform.tfplan
+terraform.tfplan.*
+.plan
+
+# =========================
+# EDITORES / IDEs
+# =========================
+# VSCode
+.vscode/
+.code-workspace
+
+# JetBrains / PyCharm
+.idea/
+*.iml
+
+# Sublime
+*.sublime-project
+*.sublime-workspace
+
+# Otros
+.DS_Store
+Thumbs.db
+*.orig
+*.rej
+*.bak
+
+# =========================
+# CI/CD y herramientas
+# =========================
+# Pre-commit / lint
+.pre-commit-config.yaml.bak
+.pre-commit/
+.gitleaks/
+.gitleaks.toml
+
+# GitHub Actions
+.github/workflows/*.bak
+.github/actions-temp/
+
+# Coverage
+coverage/
+reports/
+test-results/
+
+# =========================
+# PROJECT-SPECIFIC
+# =========================
+# Configuración de entorno / secrets
+.env.local
+.env.*.backup
+.envrc
+secrets*.json
+credentials*.json
+*.pem
+*.key
+*.crt
+*.cer
+
+# Archivos de datos o outputs
+output/
+outputs/
+artifacts/
+notebooks/outputs/
+.notebook_cache/
+
+# =========================
+# 🪶 DDEV / LOCAL DEV
+# =========================
+.ddev/
+
+
+docker/minio-spark/notebooks/.ivy2/
+**/.ivy2/
+**/.ivy2/cache/
+**/.ivy2/cache/**
+**/.ivy2/jars/
+**/*.jar
+**/*.xml.original

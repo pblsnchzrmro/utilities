@@ -1,0 +1,55 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches:
+      - dev
+      - stage
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  TERRAFORM_VERSION: 1.12.0
+  ENV_DIR: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+
+jobs:
+  terraform-apply:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref_name == 'main' && 'prod' || github.ref_name }}
+    env:
+      TF_VAR_databricks_account_client_id: ${{ secrets.DATABRICKS_ACCOUNT_CLIENT_ID }}
+      TF_VAR_databricks_account_client_secret: ${{ secrets.DATABRICKS_ACCOUNT_CLIENT_SECRET }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.GITHUBACTIONS_ACCESS_ROLE }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./envs/${{ env.ENV_DIR }}
+
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: ./envs/${{ env.ENV_DIR }}
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: ./envs/${{ env.ENV_DIR }}
+
+      - name: Terraform Output
+        run: terraform output -json
+        working-directory: ./envs/${{ env.ENV_DIR }}

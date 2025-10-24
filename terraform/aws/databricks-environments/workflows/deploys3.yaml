@@ -1,0 +1,42 @@
+name: deploys3
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{vars.GITHUBACTIONS_ACCESS_ROLE }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Set up Terraform (latest)
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        working-directory: ./envs/dev
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: ./envs/dev
+        run: terraform plan
+
+      - name: Terraform Apply
+        working-directory: ./envs/dev
+        run: terraform apply -auto-approve
+
+      - name: Terraform Output
+        working-directory: ./envs/dev
+        run: terraform output -json

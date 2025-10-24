@@ -1,0 +1,174 @@
+version: 0.2
+
+env:
+  variables:
+    TERRAFORM_VERSION: "1.5.5"
+    
+  exported-variables:
+    - PLAN_STATUS
+    - HAS_CHANGES
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.9
+    commands:
+      - echo "Installing dependencies"
+      # Install required tools
+      - yum update -y
+      - yum install -y unzip jq dos2unix
+      # Install specific version of Terraform
+      - wget -q https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+      - unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+      - mv terraform /usr/local/bin/
+      - terraform --version
+      # Set up SSH for private repositories if needed
+      - mkdir -p /root/.ssh/
+      - aws secretsmanager get-secret-value --secret-id DATO_TALEND_GITHUB_KEY --query SecretString --output text > /root/.ssh/id_rsa
+      - dos2unix /root/.ssh/id_rsa
+      - chmod 600 /root/.ssh/id_rsa
+      - ssh-keyscan github.com >> /root/.ssh/known_hosts
+      - aws secretsmanager get-secret-value --secret-id DATO_TALEND_GITHUB_KEY --query SecretString --output text > /root/.ssh/id_rsa
+
+  pre_build:
+    commands:
+      - echo "Pre-build phase"
+
+      # Map branch to workspace
+      - |
+        case "$BRANCH_NAME" in
+          "develop")
+            export WORKSPACE="DEV"
+            export TF_VAR_ci_cd_user=$(aws secretsmanager get-secret-value --secret-id ci_cd_user_dev |jq --raw-output .SecretString |jq -r ."cicd_user_password")
+            ;;
+          "release")
+            export WORKSPACE="PRE"
+            export TF_VAR_ci_cd_user=$(aws secretsmanager get-secret-value --secret-id ci_cd_user_pre |jq --raw-output .SecretString |jq -r ."cicd_user_password")
+            ;;
+          "main")
+            export WORKSPACE="PRO"
+            export TF_VAR_ci_cd_user=$(aws secretsmanager get-secret-value --secret-id ci_cd_user_pro |jq --raw-output .SecretString |jq -r ."cicd_user_password")
+            ;;
+          *)
+            echo "ERROR: Invalid branch '$BRANCH_NAME'. Only develop, release, and main branches are allowed."
+            exit 1
+            ;;
+        esac
+
+        echo "Current branch: $BRANCH_NAME --- So we will select workspace $WORKSPACE"
+
+      # Initialize Terraform
+      - terraform init -input=false
+      # Select workspace
+      - |
+        if [ ! -z "$WORKSPACE" ]; then
+          echo "Selecting workspace $WORKSPACE"
+          terraform workspace select $WORKSPACE 
+        fi
+
+  build:
+    commands:
+      - echo "Running Terraform plan"
+      # Create plan file
+      - terraform plan -input=false -var="use_service_user=true" -out=tfplan
+
+      # Convert plan to JSON and TXT formats for possible analysis
+      - terraform show -json tfplan > plan.json
+      - terraform show -no-color tfplan > plan.txt
+
+      # Check for changes first
+      - |
+        echo "Checking for changes..."
+        CREATE_COUNT=$(jq -r '.resource_changes[] | select(.change.actions[] == "create") | .address' plan.json | wc -l)
+        UPDATE_COUNT=$(jq -r '.resource_changes[] | select(.change.actions[] == "update") | .address' plan.json | wc -l)
+        DELETE_COUNT=$(jq -r '.resource_changes[] | select(.change.actions[] == "delete") | .address' plan.json | wc -l)
+        
+        TOTAL_CHANGES=$((CREATE_COUNT + UPDATE_COUNT + DELETE_COUNT))
+        
+        if [ "$TOTAL_CHANGES" -eq 0 ]; then
+          echo "No changes detected in plan"
+          export HAS_CHANGES="false"
+          exit 0
+        fi
+        
+        # If we get here, there are changes to process
+        echo "Changes detected in plan"
+        export HAS_CHANGES="true"
+        
+        # Create the changes summary file
+        echo "Terraform Plan Changes Summary" > changes.txt
+        echo "===========================" >> changes.txt
+        echo "" >> changes.txt
+        
+        # Add summary counts
+        echo "Summary of Changes:" >> changes.txt
+        echo "* Resources to create: $CREATE_COUNT" >> changes.txt
+        echo "* Resources to update: $UPDATE_COUNT" >> changes.txt
+        echo "* Resources to delete: $DELETE_COUNT" >> changes.txt
+        echo "" >> changes.txt
+        
+        # Function to extract and format changes
+        format_changes() {
+          local action=$1
+          local title=$2
+          local count=$3
+          
+          if [ $count -gt 0 ]; then
+            echo "$title:" >> changes.txt
+            echo "-------------------" >> changes.txt
+            jq -r --arg action "$action" '
+              .resource_changes[] 
+              | select(.change.actions[] == $action)
+              | "Resource: \(.address)\n  Type: \(.type)\n  Changes:"
+              + (
+                .change.before as $before
+                | .change.after as $after
+                | ($before + $after | keys) | unique[]
+                | select(
+                    ($before[.] != $after[.])
+                    and ($before[.] != null or $after[.] != null)
+                  )
+                | "    - " + . + ": "
+                + (if $before[.] == null then "null" else ($before[.] | tostring) end)
+                + " -> "
+                + (if $after[.] == null then "null" else ($after[.] | tostring) end)
+              ) + "\n"
+            ' plan.json >> changes.txt
+            echo "" >> changes.txt
+          fi
+        }
+        
+        # Generate detailed changes by type
+        format_changes "create" "Resources to be Created" $CREATE_COUNT
+        format_changes "update" "Resources to be Updated" $UPDATE_COUNT
+        format_changes "delete" "Resources to be Deleted" $DELETE_COUNT
+
+  post_build:
+    commands:
+      - echo "Post-build phase"
+      - |
+        if [ $CODEBUILD_BUILD_SUCCEEDING = 1 ]; then
+          echo "Build successful!"
+          export PLAN_STATUS="SUCCESS"
+
+        else
+          echo "Build project failed!"
+          export PLAN_STATUS="FAILED"
+          exit 1
+        fi
+
+cache:
+  paths:
+    - .terraform/**/*
+    - .terraform.lock.hcl
+
+artifacts:
+  files:
+    - tfplan
+    - plan.json
+    - plan.txt
+    - changes.txt
+    # - '**/*.tf'
+    # - '**/*.tfvars'
+    # - .terraform.lock.hcl
+  name: plan-output

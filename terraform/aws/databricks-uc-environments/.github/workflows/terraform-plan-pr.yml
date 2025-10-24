@@ -1,0 +1,88 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - stage
+      - main
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+env:
+  TERRAFORM_VERSION: 1.12.0
+  ENV_DIR: ${{ github.base_ref == 'main' && 'prod' || github.base_ref }}
+
+jobs:
+  terraform-plan:
+    runs-on: ubuntu-latest
+    environment: ${{ github.base_ref == 'main' && 'prod' || github.base_ref }}
+    env:
+      TF_VAR_databricks_account_client_id: ${{ secrets.DATABRICKS_ACCOUNT_CLIENT_ID }}
+      TF_VAR_databricks_account_client_secret: ${{ secrets.DATABRICKS_ACCOUNT_CLIENT_SECRET }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.GITHUBACTIONS_ACCESS_ROLE }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./envs/${{ env.ENV_DIR }}
+
+      - name: Terraform Plan
+        run: terraform plan -no-color -input=false > plan.txt
+        working-directory: ./envs/${{ env.ENV_DIR }}
+
+      - name: Comment Plan Output
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('./envs/${{ env.ENV_DIR }}/plan.txt', 'utf8');
+            const truncatedPlan = plan.length > 64000 ? plan.slice(0, 64000) + '\n... (truncated)' : plan;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' && comment.body.includes('Terraform Plan Output')
+            );
+
+            const output =
+              '#### Terraform Plan Output\n' +
+              '\n```hcl\n' +
+              truncatedPlan +
+              '\n```\n';
+
+            if (botComment) {
+              await github.rest.issues.deleteComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+              });
+            }
+
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output,
+            });

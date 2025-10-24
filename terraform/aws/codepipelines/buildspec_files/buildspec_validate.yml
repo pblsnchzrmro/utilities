@@ -1,0 +1,125 @@
+version: 0.2
+
+env:
+  variables:
+    TERRAFORM_VERSION: "1.5.5"
+    
+  exported-variables:
+    - VALIDATION_STATUS
+    
+phases:
+  install:
+    runtime-versions:
+      python: 3.9
+    commands:
+      - echo "Installing dependencies"
+      # Install required tools
+      - yum update -y
+      - yum install -y unzip jq dos2unix
+
+      # Install specific version of Terraform
+      - wget -q https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+      - unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+      - mv terraform /usr/local/bin/
+      - terraform --version
+
+      # # Setup SSH
+      # - mkdir -p /root/.ssh/
+      # - aws secretsmanager get-secret-value --secret-id DATO_TALEND_GITHUB_KEY --query SecretString --output text > /root/.ssh/id_rsa
+      # - dos2unix /root/.ssh/id_rsa
+      # - chmod 600 /root/.ssh/id_rsa
+      # - ssh-keyscan github.com >> /root/.ssh/known_hosts
+
+      # # Install security tools
+      # - curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash  # Install TFLint 
+      # - curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash  # Install tfsec - For our case (databricks), it will only check for secrets in plain text
+      # - |
+      #   GITLEAKS_VERSION="8.23.3"
+      #   wget https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz
+      #   tar -xzf gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz
+      #   chmod +x gitleaks
+      #   mv gitleaks /usr/local/bin/
+      #   gitleaks version
+
+      # - rm -f .gitleaksignore  # Remove any existing .gitleaksignore
+      # - rm README.md # Remove readme file from gitleaks (it causes issues with gitleaksignore)
+      # - |
+      #   cat <<EOF > .gitleaksignore
+      #   README.md
+      #   LICENSE
+      #   gitleaks_*
+      #   *.zip
+      #   .terraform/*
+      #   EOF
+
+  pre_build:
+    commands:
+      - echo "Pre-building"
+      # Initialize backend and providers
+      - echo "Initializing Terraform..."
+      - terraform init -input=false
+
+      # Select workspace
+      - |
+        if [ ! -z "$WORKSPACE" ]; then
+          echo "Selecting workspace $WORKSPACE"
+          terraform workspace select $WORKSPACE
+        fi
+
+  build:
+    commands:
+      - echo "Running validation steps"
+
+      # Check Terraform formatting
+      - echo "Checking Terraform formatting..."
+      # - terraform fmt -check -recursive -diff
+      - terraform fmt -recursive -diff
+
+      # Run Terraform validation
+      - echo "Running Terraform validation..."
+      - terraform validate
+
+      # # Run TFLint with custom config
+      # - echo "Running TFLint..."
+      # - tflint --init
+      # - tflint --force # Force parameter will not fail when a warning is found
+
+      # Run security checks
+      # - echo "Running Terraform security checks..."
+      # - tfsec .  
+
+      # Check for hardcoded secrets / Enhanced secrets scanning with gitleaks
+      # - echo "Running secrets scan..."
+      # - |
+      #   gitleaks dir . \
+      #     --report-format json \
+      #     --report-path gitleaks-report.json \
+      #     --verbose \
+      #     --no-color || (
+      #       echo "⚠️ Potential secrets detected! "
+      #       exit 1
+      #     )
+
+  post_build:
+    commands:
+      - echo "Post-build"
+      - |
+        if [ $CODEBUILD_BUILD_SUCCEEDING = 1 ]; then
+          echo "Validation successful!"
+          export VALIDATION_STATUS="SUCCESS"
+        else
+          echo "Validation failed!"
+          export VALIDATION_STATUS="FAILED"
+          exit 1
+        fi
+
+cache:
+  paths:
+    - .terraform/**/*
+    - .terraform.lock.hcl
+
+artifacts:
+  files:
+    - '**/*'
+    # - gitleaks_report.txt
+  name: validation-output

@@ -1,0 +1,102 @@
+version: 0.2
+
+env:
+  variables:
+    TERRAFORM_VERSION: "1.5.5"
+    
+  exported-variables:
+    - APPLY_STATUS
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.9
+    commands:
+      - echo "Installing dependencies"
+      # Install required tools
+      - yum update -y
+      - yum install -y unzip jq dos2unix
+      # Install specific version of Terraform
+      - wget -q https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+      - unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+      - mv terraform /usr/local/bin/
+      - terraform --version
+      # Set up SSH for private repositories if needed
+      - mkdir -p /root/.ssh/
+      - aws secretsmanager get-secret-value --secret-id DATO_TALEND_GITHUB_KEY --query SecretString --output text > /root/.ssh/id_rsa
+      - dos2unix /root/.ssh/id_rsa
+      - chmod 600 /root/.ssh/id_rsa
+      - ssh-keyscan github.com >> /root/.ssh/known_hosts
+
+  pre_build:
+    commands:
+      - echo "Pre-build phase"
+      # Map branch to workspace
+      - |
+        case "$BRANCH_NAME" in
+          "develop")
+            export WORKSPACE="DEV"
+            export TF_VAR_ci_cd_user=$(aws secretsmanager get-secret-value --secret-id ci_cd_user_dev |jq --raw-output .SecretString |jq -r ."cicd_user_password")
+            ;;
+          "release")
+            export WORKSPACE="PRE"
+            export TF_VAR_ci_cd_user=$(aws secretsmanager get-secret-value --secret-id ci_cd_user_pre |jq --raw-output .SecretString |jq -r ."cicd_user_password")
+            ;;
+          "main")
+            export WORKSPACE="PRO"
+            export TF_VAR_ci_cd_user=$(aws secretsmanager get-secret-value --secret-id ci_cd_user_pro |jq --raw-output .SecretString |jq -r ."cicd_user_password")
+            ;;
+          *)
+            echo "ERROR: Invalid branch '$BRANCH_NAME'. Only develop, release, and main branches are allowed."
+            exit 1
+            ;;
+        esac
+
+        echo "Current branch: $BRANCH_NAME --- So select workspace $WORKSPACE"
+
+      # Initialize Terraform
+      - terraform init -input=false
+      # Select workspace
+      - |
+        if [ ! -z "$WORKSPACE" ]; then
+          echo "Selecting workspace $WORKSPACE"
+          terraform workspace select $WORKSPACE
+        fi
+
+  build:
+    commands:
+      # Apply the saved plan
+      - echo "Checking if there are changes to apply..."
+      - |
+        if [ "$HAS_CHANGES" = "true" ]; then
+          echo "Changes detected, proceeding with apply"
+          cp $CODEBUILD_SRC_DIR_TFPlanArtifacts/tfplan .
+          terraform apply -input=false -auto-approve "tfplan" 2>&1 | tee apply.txt
+          echo "Apply finished"
+        else
+          echo "No changes detected, skipping apply"
+          echo "No changes to apply" > apply.txt
+        fi
+
+  post_build:
+    commands:
+      - echo "Post-build phase"
+      - |
+        if [ $CODEBUILD_BUILD_SUCCEEDING = 1 ]; then
+          echo "Build successful!"
+          export APPLY_STATUS="SUCCESS"
+        else
+          echo "Build failed!"
+          export APPLY_STATUS="FAILED"
+          exit 1
+        fi
+
+cache:
+  paths:
+    - .terraform/**/*
+    - .terraform.lock.hcl
+
+artifacts:
+  files:
+    - apply.txt 
+  name: apply-output

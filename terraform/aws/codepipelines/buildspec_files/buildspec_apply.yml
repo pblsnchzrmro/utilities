@@ -1,0 +1,45 @@
+version: 0.2
+
+env:
+  variables:
+    TERRAFORM_VERSION: "1.5.5"
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.9
+    commands:
+      - echo "Installing Terraform ${TERRAFORM_VERSION}"
+      - yum install -y unzip jq
+      - wget -q https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+      - unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+      - mv terraform /usr/local/bin/
+      - terraform --version
+      - echo "Checking for secrets..."
+      - >
+        if [ -n "$SECRET_NAME" ]; then
+          echo "Loading secrets from: $SECRET_NAME"
+          CREDS=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query SecretString --output text)
+          for key in $(echo "$CREDS" | jq -r "keys[]"); do
+            value=$(echo "$CREDS" | jq -r --arg k "$key" ".[$k]") 
+            export TF_VAR_$key="$value"
+            echo "Exported TF_VAR_$key"
+          done
+        else
+          echo "No SECRET_NAME defined, skipping secret loading"
+        fi
+
+  pre_build:
+    commands:
+      - echo "Initializing Terraform"
+      - terraform init -input=false
+
+  build:
+    commands:
+      - echo "Applying Terraform plan"
+      - cp $CODEBUILD_SRC_DIR_TFPlanArtifacts/tfplan .  # asegúrate que TFPlanArtifacts es la etapa anterior
+      - terraform apply -input=false -auto-approve tfplan
+
+artifacts:
+  files:
+    - apply.txt

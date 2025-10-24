@@ -1,0 +1,137 @@
+[
+    {
+        "library": {
+            "pypi": {
+                "package": "glob2==0.7"
+            }
+        },
+        "status": "PENDING",
+        "is_library_for_all_clusters": false
+    },
+    {
+        "library": {
+            "pypi": {
+                "package": "xlrd==1.2.0"
+            }
+        },
+        "status": "PENDING",
+        "is_library_for_all_clusters": false
+    },
+    {
+        "library": {
+            "pypi": {
+                "package": "azure-storage-file-datalake==12.0.1"
+            }
+        },
+        "status": "PENDING",
+        "is_library_for_all_clusters": false
+    },
+    {
+        "library": {
+            "pypi": {
+                "package": "azure-storage-blob==12.3.1"
+            }
+        },
+        "status": "PENDING",
+        "is_library_for_all_clusters": false
+    },
+    {
+        "library": {
+            "pypi": {
+                "package": "openpyxl==3.0.0"
+            }
+        },
+        "status": "PENDING",
+        "is_library_for_all_clusters": false
+    },
+    {
+        "library": {
+            "pypi": {
+                "package": "beartype==0.6.0"
+            }
+        },
+        "status": "PENDING",
+        "is_library_for_all_clusters": false
+    },
+    {
+        "library": {
+            "pypi": {
+                "package": "pyodbc==4.0.27"
+            }
+        },
+        "status": "PENDING",
+        "is_library_for_all_clusters": false
+    },
+    {
+        "library": {
+            "pypi": {
+                "package": "beautifulsoup4==4.8.0"
+            }
+        },
+        "status": "PENDING",
+        "is_library_for_all_clusters": false
+    },
+    {
+        "library": {
+            "pypi": {
+                "package": "pmdarima"
+            }
+        },
+        "status": "PENDING",
+        "is_library_for_all_clusters": false
+    },
+    {
+        "library": {
+            "pypi": {
+                "package": "xgboost"
+            }
+        },
+        "status": "PENDING",
+        "is_library_for_all_clusters": false
+    },
+    {
+        "library": {
+            "pypi": {
+                "package": "mlflow"
+            }
+        },
+        "status": "PENDING",
+        "is_library_for_all_clusters": false
+    },
+    {
+        "library": {
+            "pypi": {
+                "package": "great_expectations"
+            }
+        },
+        "status": "PENDING",
+        "is_library_for_all_clusters": false
+    },
+    {
+        "library": {
+            "pypi": {
+                "package": "azure-identity"
+            }
+        },
+        "status": "PENDING",
+        "is_library_for_all_clusters": false
+    },
+    {
+        "library": {
+            "pypi": {
+                "package": "black==22.3.0"
+            }
+        },
+        "status": "PENDING",
+        "is_library_for_all_clusters": false
+    },
+    {
+        "library": {
+            "pypi": {
+                "package": "tokenize-rt==4.2.1"
+            }
+        },
+        "status": "PENDING",
+        "is_library_for_all_clusters": false
+    }
+]

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ejecutar Job en Databricks</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 2em; }
+    button { padding: 0.5em 1em; font-size: 1em; }
+    #msg { margin-top: 1em; }
+  </style>
+</head>
+<body>
+  <h1>Ejecutar Job en Databricks</h1>
+  <button onclick="run()" id="btn">Ejecutar</button>
+  <p id="msg"></p>
+
+  <script>
+    async function run() {
+      const msg = document.getElementById("msg");
+      const btn = document.getElementById("btn");
+      msg.textContent = "Ejecutando...";
+      btn.disabled = true;
+
+      try {
+        const res = await fetch('/api/exec_databricks_job', { method: 'POST' });
+
+        if (!res.ok) {
+          const err = await res.text();
+          msg.textContent = `❌ Error (${res.status}): ${err}`;
+        } else {
+          const txt = await res.text();
+          msg.textContent = `✅ ${txt}`;
+        }
+      } catch (e) {
+        msg.textContent = "❌ Error de red: " + e.message;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+  </script>
+</body>
+</html>

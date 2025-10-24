@@ -1,0 +1,13 @@
+{
+  "input_root_dir": "my_mlops_project",
+  "input_cloud": "azure",
+  "input_cicd_platform": "azure_devops",
+  "input_default_branch": "main",
+  "input_release_branch": "realese",
+  "cloud_specific_node_type_id": "v0.236.0",
+  "input_cli_version": "v0.236.0",
+  "test_catalog_name": "uat",
+  "staging_catalog_name": "staging",
+  "prod_catalog_name": "pro",
+  "input_docker_image": "databricksfieldeng/mlopsstacks:latest"
+}

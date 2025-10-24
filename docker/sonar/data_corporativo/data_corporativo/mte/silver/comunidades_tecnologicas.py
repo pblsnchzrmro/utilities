@@ -1,0 +1,35 @@
+# Databricks notebook source
+from pyspark.sql.functions import col, when
+from pyspark.sql.types import IntegerType
+
+# COMMAND ----------
+
+# Read table from catalog
+df = spark.read.table("operaciones.bronze_mte.ComunidadesTecnologicas")
+
+# Show the first few rows of the dataframe
+df.display()
+
+# COMMAND ----------
+
+# Transformación de columna NivelMadurez string a integer
+df = df.withColumn("NivelMadurez", df["NivelMadurez"].cast(IntegerType()))
+
+# Transformacion de columna boolean ComunidadAbierta a integer 
+df = df.withColumn("ComunidadAbierta", when(col("ComunidadAbierta") == True, 1).otherwise(0))
+
+# Se decide mantener las celdas vacias como NULL
+df = df.withColumn("Responsable", when(col("Responsable") == "", None).otherwise(col("Responsable")))
+df = df.withColumn("ResponsableEmail", when(col("ResponsableEmail") == "", None).otherwise(col("ResponsableEmail")))
+
+# COMMAND ----------
+
+df.display()
+
+# COMMAND ----------
+
+# Save to SILVER catalog
+df.write.mode("overwrite").format("delta").option("overwriteSchema", "true").option("mergeSchema", "true").saveAsTable('operaciones.silver_mte.ComunidadesTecnologicas')
+
+# Save to PEOPLE catalog
+df.write.mode("overwrite").format("delta").option("overwriteSchema", "true").option("mergeSchema", "true").saveAsTable('people.silver_mte.ComunidadesTecnologicas')

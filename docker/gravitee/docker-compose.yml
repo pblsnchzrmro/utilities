@@ -1,0 +1,57 @@
+version: '3'
+
+services:
+  mongodb:
+    image: mongo:4.2
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - cluster.name=gravitee-cluster
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+
+  management_api:
+    image: graviteeio/management-api:3.17.3
+    container_name: gravitee-management-api
+    depends_on:
+      - mongodb
+      - elasticsearch
+    environment:
+      - gravitee_mongodb_uri=mongodb://mongo:27017/gravitee
+      - gravitee_elasticsearch_hosts=http://elasticsearch:9200
+      - gravitee_management_ui_url=http://localhost:8083
+    ports:
+      - "8083:8083"
+
+  management_ui:
+    image: graviteeio/management-ui:3.17.3
+    container_name: gravitee-management-ui
+    environment:
+      - API_URL=http://localhost:8083/management
+    ports:
+      - "8084:80"
+
+  gateway:
+    image: graviteeio/gateway:3.17.3
+    container_name: gravitee-gateway
+    depends_on:
+      - management_api
+    environment:
+      - gravitee_management_api_url=http://gravitee-management-api:8083/management
+    ports:
+      - "8082:8082"
+
+volumes:
+  mongo_data:
+  es_data:
